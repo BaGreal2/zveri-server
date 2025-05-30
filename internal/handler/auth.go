@@ -89,8 +89,11 @@ func MeHandler(db *sql.DB) http.HandlerFunc {
 		userID := r.Context().Value(middleware.UserIDKey).(int)
 
 		var user model.User
-		if err := db.QueryRow("SELECT id, email, username, created_at FROM users WHERE id = ?", userID).
-			Scan(&user.ID, &user.Email, &user.Username, &user.CreatedAt); err != nil {
+		err := db.QueryRow(`
+			SELECT id, email, username, bio, avatar_url, created_at
+			FROM users WHERE id = ?`, userID).
+			Scan(&user.ID, &user.Email, &user.Username, &user.Bio, &user.AvatarURL, &user.CreatedAt)
+		if err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
@@ -109,15 +112,20 @@ func UpdateProfileHandler(db *sql.DB) http.HandlerFunc {
 		userID := r.Context().Value(middleware.UserIDKey).(int)
 
 		var req struct {
-			Email    string `json:"email"`
-			Username string `json:"username"`
+			Email     string  `json:"email"`
+			Username  string  `json:"username"`
+			Bio       *string `json:"bio"`
+			AvatarURL *string `json:"avatar_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		_, err := db.Exec("UPDATE users SET email = ?, username = ? WHERE id = ?", req.Email, req.Username, userID)
+		_, err := db.Exec(`
+			UPDATE users SET email = ?, username = ?, bio = ?, avatar_url = ?
+			WHERE id = ?`,
+			req.Email, req.Username, req.Bio, req.AvatarURL, userID)
 		if err != nil {
 			http.Error(w, "Could not update profile", http.StatusInternalServerError)
 			return

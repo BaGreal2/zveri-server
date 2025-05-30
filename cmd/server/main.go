@@ -30,6 +30,10 @@ func main() {
 	http.HandleFunc("/me/update", handler.WithCORS(secured(handler.UpdateProfileHandler(database))))
 	http.HandleFunc("/me/delete", handler.WithCORS(secured(handler.DeleteProfileHandler(database))))
 
+	http.HandleFunc("/favorites/", handler.WithCORS(secured(handler.AddFavoriteHandler(database))))    // POST
+	http.HandleFunc("/favorites/", handler.WithCORS(secured(handler.ListFavoritesHandler(database))))   // GET
+	http.HandleFunc("/favorites/", handler.WithCORS(secured(handler.RemoveFavoriteHandler(database)))) // DELETE
+
 	http.HandleFunc("/series/", handler.WithCORS(secured(handler.SeriesRouter(tmdbToken))))
 	http.HandleFunc("/series/top_rated", handler.WithCORS(secured(handler.TopRatedHandler(tmdbToken))))
 

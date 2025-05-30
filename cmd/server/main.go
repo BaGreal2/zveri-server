@@ -23,9 +23,12 @@ func main() {
 
 	http.HandleFunc("/register", handler.WithCORS(handler.RegisterHandler(database)))
 	http.HandleFunc("/login", handler.WithCORS(handler.LoginHandler(database, jwtSecret)))
-	http.HandleFunc("/me", handler.WithCORS(handler.MeHandler(database, jwtSecret)))
 
 	secured := middleware.AuthMiddleware(jwtSecret)
+
+	http.HandleFunc("/me", handler.WithCORS(secured(handler.MeHandler(database))))
+	http.HandleFunc("/me/update", handler.WithCORS(secured(handler.UpdateProfileHandler(database))))
+	http.HandleFunc("/me/delete", handler.WithCORS(secured(handler.DeleteProfileHandler(database))))
 
 	http.HandleFunc("/series/", handler.WithCORS(secured(handler.SeriesRouter(tmdbToken))))
 	http.HandleFunc("/series/top_rated", handler.WithCORS(secured(handler.TopRatedHandler(tmdbToken))))

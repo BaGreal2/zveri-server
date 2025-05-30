@@ -4,17 +4,18 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"time"
 
+	"github.com/BaGreal2/zveri-server/internal/middleware"
 	"github.com/BaGreal2/zveri-server/internal/model"
 
-	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/golang-jwt/jwt/v4"
+	"time"
 )
 
 func RegisterHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
+		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
@@ -49,7 +50,7 @@ func RegisterHandler(db *sql.DB) http.HandlerFunc {
 
 func LoginHandler(db *sql.DB, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
+		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
@@ -83,31 +84,66 @@ func LoginHandler(db *sql.DB, jwtSecret string) http.HandlerFunc {
 	}
 }
 
-func MeHandler(db *sql.DB, jwtSecret string) http.HandlerFunc {
+func MeHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		token, err := jwt.Parse(authHeader[len("Bearer "):], func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
-		})
-		if err != nil || !token.Valid {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
-		userID := int(claims["userID"].(float64))
+		userID := r.Context().Value(middleware.UserIDKey).(int)
 
 		var user model.User
-		if err := db.QueryRow("SELECT id, email, created_at FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Email, &user.CreatedAt); err != nil {
+		if err := db.QueryRow("SELECT id, email, username, created_at FROM users WHERE id = ?", userID).
+			Scan(&user.ID, &user.Email, &user.Username, &user.CreatedAt); err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
 
 		json.NewEncoder(w).Encode(user)
+	}
+}
+
+func UpdateProfileHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		userID := r.Context().Value(middleware.UserIDKey).(int)
+
+		var req struct {
+			Email    string `json:"email"`
+			Username string `json:"username"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		_, err := db.Exec("UPDATE users SET email = ?, username = ? WHERE id = ?", req.Email, req.Username, userID)
+		if err != nil {
+			http.Error(w, "Could not update profile", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Profile updated"})
+	}
+}
+
+func DeleteProfileHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		userID := r.Context().Value(middleware.UserIDKey).(int)
+
+		_, err := db.Exec("DELETE FROM users WHERE id = ?", userID)
+		if err != nil {
+			http.Error(w, "Could not delete user", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": "User deleted"})
 	}
 }

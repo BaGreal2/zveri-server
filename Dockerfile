@@ -9,7 +9,7 @@ COPY . .
 RUN go build -o server ./cmd/server
 
 # Run stage
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 WORKDIR /app
 COPY --from=build /app/server .

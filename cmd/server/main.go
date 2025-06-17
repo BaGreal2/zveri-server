@@ -30,9 +30,18 @@ func main() {
 	http.HandleFunc("/me/update", handler.WithCORS(secured(handler.UpdateProfileHandler(database))))
 	http.HandleFunc("/me/delete", handler.WithCORS(secured(handler.DeleteProfileHandler(database))))
 
-	http.HandleFunc("/favorites/", handler.WithCORS(secured(handler.AddFavoriteHandler(database))))    // POST
-	http.HandleFunc("/favorites/", handler.WithCORS(secured(handler.ListFavoritesHandler(database))))   // GET
-	http.HandleFunc("/favorites/", handler.WithCORS(secured(handler.RemoveFavoriteHandler(database)))) // DELETE
+	http.HandleFunc("/favorites/", handler.WithCORS(secured(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handler.AddFavoriteHandler(database)(w, r)
+		case http.MethodGet:
+			handler.ListFavoritesHandler(database)(w, r)
+		case http.MethodDelete:
+			handler.RemoveFavoriteHandler(database)(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
 
 	http.HandleFunc("/series/", handler.WithCORS(secured(handler.SeriesRouter(tmdbToken))))
 	http.HandleFunc("/series/top_rated", handler.WithCORS(secured(handler.TopRatedHandler(tmdbToken))))

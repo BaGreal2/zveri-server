@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -24,9 +25,14 @@ func AddFavoriteHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec("INSERT OR IGNORE INTO user_favorites (user_id, series_id) VALUES (?, ?)", userID, seriesID)
+		_, err := db.Exec(`
+			INSERT INTO user_favorites (user_id, series_id)
+			VALUES ($1, $2)
+			ON CONFLICT (user_id, series_id) DO NOTHING
+		`, userID, seriesID)
+
 		if err != nil {
-			http.Error(w, "Could not add favorite", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Could not add favorite: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -49,9 +55,9 @@ func RemoveFavoriteHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec("DELETE FROM user_favorites WHERE user_id = ? AND series_id = ?", userID, seriesID)
+		_, err := db.Exec("DELETE FROM user_favorites WHERE user_id = $1 AND series_id = $2", userID, seriesID)
 		if err != nil {
-			http.Error(w, "Could not remove favorite", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Could not remove favorite: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -63,9 +69,9 @@ func ListFavoritesHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Context().Value(middleware.UserIDKey).(int)
 
-		rows, err := db.Query("SELECT series_id FROM user_favorites WHERE user_id = ?", userID)
+		rows, err := db.Query("SELECT series_id FROM user_favorites WHERE user_id = $1", userID)
 		if err != nil {
-			http.Error(w, "Could not retrieve favorites", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Could not retrieve favorites: %v", err), http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()

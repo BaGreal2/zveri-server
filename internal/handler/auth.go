@@ -3,14 +3,14 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/BaGreal2/zveri-server/internal/middleware"
 	"github.com/BaGreal2/zveri-server/internal/model"
-
-	"golang.org/x/crypto/bcrypt"
 	"github.com/golang-jwt/jwt/v4"
-	"time"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func RegisterHandler(db *sql.DB) http.HandlerFunc {
@@ -27,19 +27,19 @@ func RegisterHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		var existingID int
-		if err := db.QueryRow("SELECT id FROM users WHERE email = ?", req.Email).Scan(&existingID); err == nil {
+		if err := db.QueryRow("SELECT id FROM users WHERE email = $1", req.Email).Scan(&existingID); err == nil {
 			http.Error(w, "Email already exists", http.StatusConflict)
 			return
 		}
-		if err := db.QueryRow("SELECT id FROM users WHERE username = ?", req.Username).Scan(&existingID); err == nil {
+		if err := db.QueryRow("SELECT id FROM users WHERE username = $1", req.Username).Scan(&existingID); err == nil {
 			http.Error(w, "Username already exists", http.StatusConflict)
 			return
 		}
 
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		_, err := db.Exec("INSERT INTO users (email, username, password) VALUES (?, ?, ?)", req.Email, req.Username, string(hashedPassword))
+		_, err := db.Exec("INSERT INTO users (email, username, password) VALUES ($1, $2, $3)", req.Email, req.Username, string(hashedPassword))
 		if err != nil {
-			http.Error(w, "Error creating user", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Error creating user: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -63,7 +63,7 @@ func LoginHandler(db *sql.DB, jwtSecret string) http.HandlerFunc {
 
 		var user model.User
 		var hashed string
-		query := "SELECT id, email, username, password, created_at FROM users WHERE email = ? OR username = ?"
+		query := "SELECT id, email, username, password, created_at FROM users WHERE email = $1 OR username = $2"
 		err := db.QueryRow(query, req.Identifier, req.Identifier).Scan(&user.ID, &user.Email, &user.Username, &hashed, &user.CreatedAt)
 		if err != nil || bcrypt.CompareHashAndPassword([]byte(hashed), []byte(req.Password)) != nil {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
@@ -91,7 +91,7 @@ func MeHandler(db *sql.DB) http.HandlerFunc {
 		var user model.User
 		err := db.QueryRow(`
 			SELECT id, email, username, bio, avatar_url, created_at
-			FROM users WHERE id = ?`, userID).
+			FROM users WHERE id = $1`, userID).
 			Scan(&user.ID, &user.Email, &user.Username, &user.Bio, &user.AvatarURL, &user.CreatedAt)
 		if err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
@@ -123,11 +123,11 @@ func UpdateProfileHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			UPDATE users SET email = ?, username = ?, bio = ?, avatar_url = ?
-			WHERE id = ?`,
+			UPDATE users SET email = $1, username = $2, bio = $3, avatar_url = $4
+			WHERE id = $5`,
 			req.Email, req.Username, req.Bio, req.AvatarURL, userID)
 		if err != nil {
-			http.Error(w, "Could not update profile", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Could not update profile: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -145,9 +145,9 @@ func DeleteProfileHandler(db *sql.DB) http.HandlerFunc {
 
 		userID := r.Context().Value(middleware.UserIDKey).(int)
 
-		_, err := db.Exec("DELETE FROM users WHERE id = ?", userID)
+		_, err := db.Exec("DELETE FROM users WHERE id = $1", userID)
 		if err != nil {
-			http.Error(w, "Could not delete user", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Could not delete user: %v", err), http.StatusInternalServerError)
 			return
 		}
 

@@ -8,8 +8,6 @@ import (
 	"github.com/BaGreal2/zveri-server/internal/db"
 	"github.com/BaGreal2/zveri-server/internal/handler"
 	"github.com/BaGreal2/zveri-server/internal/middleware"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {

@@ -1,10 +1,38 @@
 package tmdb
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 )
+
+type tmdbDetails struct {
+	Genres []struct {
+		Name string `json:"name"`
+	} `json:"genres"`
+}
+
+func FetchGenres(apiKey, id string) ([]string, error) {
+	url := fmt.Sprintf("https://api.themoviedb.org/3/tv/%s?language=en-US", id)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var d tmdbDetails
+	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+		return nil, err
+	}
+	out := make([]string, len(d.Genres))
+	for i, g := range d.Genres {
+		out[i] = g.Name
+	}
+	return out, nil
+}
 
 func SeriesDetailsHandler(apiKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

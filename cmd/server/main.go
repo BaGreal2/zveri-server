@@ -25,7 +25,7 @@ func main() {
 	secured := middleware.AuthMiddleware(jwtSecret)
 
 	http.HandleFunc("/me", handler.WithCORS(secured(handler.MeHandler(database))))
-	http.HandleFunc("/me/update", handler.WithCORS(secured(handler.UpdateProfileHandler(database))))
+	http.HandleFunc("/me/update", handler.WithCORS(secured(handler.PatchProfileHandler(database))))
 	http.HandleFunc("/me/delete", handler.WithCORS(secured(handler.DeleteProfileHandler(database))))
 
 	http.HandleFunc("/favorites/", handler.WithCORS(secured(func(w http.ResponseWriter, r *http.Request) {

@@ -196,6 +196,7 @@ func PatchProfileHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
 }
 

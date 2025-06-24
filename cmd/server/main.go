@@ -28,6 +28,7 @@ func main() {
 	http.HandleFunc("/me/update", handler.WithCORS(secured(handler.PatchProfileHandler(database))))
 	http.HandleFunc("/me/delete", handler.WithCORS(secured(handler.DeleteProfileHandler(database))))
 
+	http.HandleFunc("/favorites", handler.WithCORS(http.RedirectHandler("/favorites/", http.StatusPermanentRedirect).ServeHTTP))
 	http.HandleFunc("/favorites/", handler.WithCORS(secured(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
